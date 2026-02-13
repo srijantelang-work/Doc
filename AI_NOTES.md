@@ -3,7 +3,7 @@
 ## LLM & Provider
 
 **Models used:**
-- **Gemini 1.5 Flash** — for generating Q&A answers from document context
+- **Gemini 2.5 Flash** — for generating Q&A answers from document context
 - **Gemini text-embedding-004** — for generating vector embeddings of document chunks and questions
 
 **Provider:** Google AI (via `@google/generative-ai` SDK)

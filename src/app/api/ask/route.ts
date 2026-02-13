@@ -13,7 +13,7 @@ interface ChunkRow {
     document_name: string;
 }
 
-const LLM_MODEL = 'gemini-1.5-flash';
+const LLM_MODEL = 'gemini-2.5-flash';
 
 export async function POST(request: NextRequest) {
     try {

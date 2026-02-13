@@ -55,30 +55,42 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate file type
-        const validTypes = ['text/plain', 'text/markdown', 'application/octet-stream'];
-        const validExtensions = ['.txt', '.md', '.text'];
+        const validTypes = ['text/plain', 'text/markdown', 'application/octet-stream', 'application/pdf'];
+        const validExtensions = ['.txt', '.md', '.text', '.pdf'];
         const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
 
         if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
             return NextResponse.json(
-                { error: 'Only text files (.txt, .md) are supported' },
+                { error: 'Only .txt, .md, and .pdf files are supported' },
                 { status: 400 }
             );
         }
 
-        // Validate file size (max 1MB)
-        if (file.size > 1024 * 1024) {
+        // Validate file size (max 5MB)
+        const MAX_FILE_SIZE = 5 * 1024 * 1024;
+        if (file.size > MAX_FILE_SIZE) {
             return NextResponse.json(
-                { error: 'File size must be less than 1MB' },
+                { error: 'File size must be less than 5MB' },
                 { status: 400 }
             );
         }
 
-        const content = await file.text();
+        // Extract text content based on file type
+        let content: string;
+
+        if (fileExtension === '.pdf' || file.type === 'application/pdf') {
+            const buffer = Buffer.from(await file.arrayBuffer());
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const pdfParse = require('pdf-parse');
+            const pdfData = await pdfParse(buffer);
+            content = pdfData.text;
+        } else {
+            content = await file.text();
+        }
 
         if (!content.trim()) {
             return NextResponse.json(
-                { error: 'File is empty' },
+                { error: 'File is empty or contains no extractable text' },
                 { status: 400 }
             );
         }

@@ -9,6 +9,18 @@ interface Document {
     chunk_count: number;
 }
 
+interface Source {
+    documentName: string;
+    documentId: string;
+    chunkText: string;
+    similarity: number;
+}
+
+interface QAResult {
+    answer: string;
+    sources: Source[];
+}
+
 export default function DocumentsPage() {
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
@@ -16,6 +28,13 @@ export default function DocumentsPage() {
     const [dragOver, setDragOver] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Q&A State
+    const [question, setQuestion] = useState('');
+    const [asking, setAsking] = useState(false);
+    const [qaResult, setQaResult] = useState<QAResult | null>(null);
+    const [qaError, setQaError] = useState<string | null>(null);
+    const [expandedSources, setExpandedSources] = useState<Set<number>>(new Set());
 
     const fetchDocuments = useCallback(async () => {
         try {
@@ -38,19 +57,20 @@ export default function DocumentsPage() {
         setTimeout(() => setToast(null), 4000);
     }
 
+    // ── Upload ──────────────────────────────────────────────
+
     async function handleUpload(file: File) {
         if (!file) return;
 
-        // Validate client-side
-        const validExtensions = ['.txt', '.md', '.text'];
+        const validExtensions = ['.txt', '.md', '.text', '.pdf'];
         const ext = '.' + file.name.split('.').pop()?.toLowerCase();
         if (!validExtensions.includes(ext)) {
-            showToast('Only .txt and .md files are supported', 'error');
+            showToast('Only .txt, .md, and .pdf files are supported', 'error');
             return;
         }
 
-        if (file.size > 1024 * 1024) {
-            showToast('File must be smaller than 1MB', 'error');
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('File must be smaller than 5MB', 'error');
             return;
         }
 
@@ -108,9 +128,72 @@ export default function DocumentsPage() {
     function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
         if (file) handleUpload(file);
-        // Reset input so the same file can be uploaded again
         if (fileInputRef.current) fileInputRef.current.value = '';
     }
+
+    // ── Q&A ─────────────────────────────────────────────────
+
+    async function handleAsk(e: React.FormEvent) {
+        e.preventDefault();
+
+        const trimmed = question.trim();
+        if (!trimmed) {
+            setQaError('Please enter a question');
+            return;
+        }
+
+        if (trimmed.length > 1000) {
+            setQaError('Question must be less than 1000 characters');
+            return;
+        }
+
+        setAsking(true);
+        setQaError(null);
+        setQaResult(null);
+        setExpandedSources(new Set());
+
+        try {
+            const res = await fetch('/api/ask', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: trimmed }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                setQaError(data.error || 'Failed to get an answer');
+                return;
+            }
+
+            setQaResult(data);
+        } catch {
+            setQaError('Something went wrong. Please try again.');
+        } finally {
+            setAsking(false);
+        }
+    }
+
+    function toggleSource(index: number) {
+        setExpandedSources((prev) => {
+            const next = new Set(prev);
+            if (next.has(index)) {
+                next.delete(index);
+            } else {
+                next.add(index);
+            }
+            return next;
+        });
+    }
+
+    function getSimilarityLabel(score: number): string {
+        if (score >= 0.8) return 'Very High';
+        if (score >= 0.6) return 'High';
+        if (score >= 0.4) return 'Moderate';
+        return 'Low';
+    }
+
+    // ── Helpers ──────────────────────────────────────────────
 
     function formatDate(iso: string) {
         return new Date(iso).toLocaleDateString('en-US', {
@@ -142,7 +225,7 @@ export default function DocumentsPage() {
                 <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".txt,.md,.text"
+                    accept=".txt,.md,.text,.pdf"
                     onChange={handleFileChange}
                     className="sr-only"
                 />
@@ -161,7 +244,7 @@ export default function DocumentsPage() {
                             <strong>Click to upload</strong> or drag and drop
                         </p>
                         <p className="upload-zone-hint">
-                            Supports .txt and .md files (max 1MB)
+                            Supports .txt, .md, and .pdf files (max 5MB)
                         </p>
                     </>
                 )}
@@ -211,6 +294,119 @@ export default function DocumentsPage() {
                                 </button>
                             </div>
                         ))}
+                    </div>
+                )}
+            </div>
+
+            {/* ── Ask a Question Section ─────────────────────── */}
+            <div className="mt-xl" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 'var(--space-2xl)' }}>
+                <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>
+                    Ask a Question
+                </h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-lg)' }}>
+                    Ask anything about your uploaded documents
+                </p>
+
+                <form onSubmit={handleAsk} className="question-form">
+                    <input
+                        type="text"
+                        className="input"
+                        placeholder="What would you like to know?"
+                        value={question}
+                        onChange={(e) => setQuestion(e.target.value)}
+                        disabled={asking}
+                    />
+                    <button
+                        type="submit"
+                        className="btn btn-primary btn-lg"
+                        disabled={asking || !question.trim() || documents.length === 0}
+                    >
+                        {asking ? (
+                            <>
+                                <span className="loading-spinner"></span>
+                                Thinking...
+                            </>
+                        ) : (
+                            'Ask →'
+                        )}
+                    </button>
+                </form>
+
+                {documents.length === 0 && !loading && (
+                    <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginTop: 'var(--space-sm)' }}>
+                        Upload documents above to start asking questions
+                    </p>
+                )}
+
+                {/* Q&A Error */}
+                {qaError && (
+                    <div
+                        className="card mt-xl"
+                        style={{
+                            background: 'var(--error-bg)',
+                            borderColor: 'rgba(248, 113, 113, 0.2)',
+                            color: 'var(--error)',
+                        }}
+                    >
+                        ⚠️ {qaError}
+                    </div>
+                )}
+
+                {/* Loading Skeleton */}
+                {asking && (
+                    <div className="mt-xl">
+                        <div className="skeleton" style={{ height: 24, width: '60%', marginBottom: 12 }}></div>
+                        <div className="skeleton" style={{ height: 16, width: '100%', marginBottom: 8 }}></div>
+                        <div className="skeleton" style={{ height: 16, width: '90%', marginBottom: 8 }}></div>
+                        <div className="skeleton" style={{ height: 16, width: '75%' }}></div>
+                    </div>
+                )}
+
+                {/* Answer + Sources */}
+                {qaResult && (
+                    <div className="answer-container">
+                        <div className="answer-box">
+                            {qaResult.answer.split('\n').map((line, i) => (
+                                <p key={i}>{line || '\u00A0'}</p>
+                            ))}
+                        </div>
+
+                        {qaResult.sources.length > 0 && (
+                            <>
+                                <h3 className="sources-title">
+                                    📎 Sources ({qaResult.sources.length})
+                                </h3>
+                                {qaResult.sources.map((source, i) => (
+                                    <div
+                                        key={i}
+                                        className="source-card"
+                                        onClick={() => toggleSource(i)}
+                                    >
+                                        <div className="source-header">
+                                            <span className="source-doc-name">
+                                                📄 {source.documentName}
+                                            </span>
+                                            <span className="badge badge-accent">
+                                                {getSimilarityLabel(source.similarity)} ({Math.round(source.similarity * 100)}%)
+                                            </span>
+                                        </div>
+                                        {expandedSources.has(i) ? (
+                                            <div className="source-text">{source.chunkText}</div>
+                                        ) : (
+                                            <p
+                                                style={{
+                                                    color: 'var(--text-muted)',
+                                                    fontSize: 'var(--text-xs)',
+                                                    marginTop: 'var(--space-xs)',
+                                                }}
+                                            >
+                                                Click to expand source passage ▸
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+                            </>
+                        )}
                     </div>
                 )}
             </div>
