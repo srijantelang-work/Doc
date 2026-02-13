@@ -54,3 +54,15 @@ A record of prompts used during app development. Agent responses and API keys ar
 - **Fix:** Switched to **`gemini-2.5-flash`** (confirmed working).
 
 ---
+
+## 6. Design System Overhaul
+
+**Prompt:**
+> @[Docs/design.md] Implement this design
+
+**Design spec included:** A complete design system document specifying warm dark palette (#141412 bg, #C4714A terracotta accent), Playfair Display/Lora headings, JetBrains Mono for mono text, horizontal timeline on Home, table-based Status page, footnote-style sources, underline-only inputs, no gradients, no rounded corners beyond 4px.
+
+**Purpose:** Full UI overhaul across 6 files: `globals.css`, `layout.tsx`, `Navbar.tsx`, `page.tsx`, `documents/page.tsx`, `status/page.tsx`.
+
+---
+

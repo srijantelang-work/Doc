@@ -193,8 +193,6 @@ export default function DocumentsPage() {
         return 'Low';
     }
 
-    // ── Helpers ──────────────────────────────────────────────
-
     function formatDate(iso: string) {
         return new Date(iso).toLocaleDateString('en-US', {
             month: 'short',
@@ -231,66 +229,55 @@ export default function DocumentsPage() {
                 />
                 {uploading ? (
                     <>
-                        <div className="upload-zone-icon">
-                            <div className="loading-spinner" style={{ width: 48, height: 48, borderWidth: 3 }}></div>
+                        <div style={{ marginBottom: 'var(--space-md)' }}>
+                            <div className="loading-spinner" style={{ width: 24, height: 24 }}></div>
                         </div>
                         <p className="upload-zone-text">Processing document...</p>
                         <p className="upload-zone-hint">Chunking text and generating embeddings</p>
                     </>
                 ) : (
                     <>
-                        <div className="upload-zone-icon">📁</div>
                         <p className="upload-zone-text">
-                            <strong>Click to upload</strong> or drag and drop
+                            Drop files here or <strong>click to upload</strong>
                         </p>
                         <p className="upload-zone-hint">
-                            Supports .txt, .md, and .pdf files (max 5MB)
+                            .txt · .md · .pdf — max 5MB
                         </p>
                     </>
                 )}
             </div>
 
             {/* Document List */}
-            <div className="mt-xl">
-                <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, marginBottom: 'var(--space-lg)' }}>
-                    Uploaded Documents {!loading && `(${documents.length})`}
-                </h2>
-
+            <div className="mt-2xl">
                 {loading ? (
                     <div className="doc-list">
                         {[1, 2, 3].map((i) => (
-                            <div key={i} className="skeleton" style={{ height: 72 }}></div>
+                            <div key={i} className="skeleton" style={{ height: 48, marginBottom: 8 }}></div>
                         ))}
                     </div>
                 ) : documents.length === 0 ? (
                     <div className="empty-state">
-                        <div className="empty-state-icon">📭</div>
                         <p className="empty-state-text">No documents uploaded yet</p>
-                        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-                            Upload your first document to get started
-                        </p>
                     </div>
                 ) : (
                     <div className="doc-list">
                         {documents.map((doc) => (
                             <div key={doc.id} className="doc-item">
                                 <div className="doc-info">
-                                    <div className="doc-icon">📄</div>
                                     <div className="doc-details">
                                         <div className="doc-name">{doc.name}</div>
                                         <div className="doc-meta">
                                             <span>{formatDate(doc.uploaded_at)}</span>
-                                            <span className="badge badge-accent">
-                                                {doc.chunk_count} chunks
-                                            </span>
+                                            <span className="badge">{doc.chunk_count} chunks</span>
                                         </div>
                                     </div>
                                 </div>
                                 <button
-                                    className="btn btn-danger btn-sm"
+                                    className="btn btn-danger"
                                     onClick={() => handleDelete(doc.id, doc.name)}
+                                    title={`Delete ${doc.name}`}
                                 >
-                                    Delete
+                                    ×
                                 </button>
                             </div>
                         ))}
@@ -299,15 +286,12 @@ export default function DocumentsPage() {
             </div>
 
             {/* ── Ask a Question Section ─────────────────────── */}
-            <div className="mt-xl" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 'var(--space-2xl)' }}>
-                <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>
+            <div className="section-divider">
+                <h2 className="page-title" style={{ fontSize: 'var(--text-2xl)' }}>
                     Ask a Question
                 </h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-lg)' }}>
-                    Ask anything about your uploaded documents
-                </p>
 
-                <form onSubmit={handleAsk} className="question-form">
+                <form onSubmit={handleAsk} className="question-form" style={{ marginTop: 'var(--space-xl)' }}>
                     <input
                         type="text"
                         className="input"
@@ -318,13 +302,13 @@ export default function DocumentsPage() {
                     />
                     <button
                         type="submit"
-                        className="btn btn-primary btn-lg"
+                        className="btn btn-text"
                         disabled={asking || !question.trim() || documents.length === 0}
+                        style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
                     >
                         {asking ? (
                             <>
                                 <span className="loading-spinner"></span>
-                                Thinking...
                             </>
                         ) : (
                             'Ask →'
@@ -333,32 +317,24 @@ export default function DocumentsPage() {
                 </form>
 
                 {documents.length === 0 && !loading && (
-                    <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginTop: 'var(--space-sm)' }}>
+                    <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-md)' }}>
                         Upload documents above to start asking questions
                     </p>
                 )}
 
                 {/* Q&A Error */}
                 {qaError && (
-                    <div
-                        className="card mt-xl"
-                        style={{
-                            background: 'var(--error-bg)',
-                            borderColor: 'rgba(248, 113, 113, 0.2)',
-                            color: 'var(--error)',
-                        }}
-                    >
-                        ⚠️ {qaError}
+                    <div className="error-card mt-xl">
+                        {qaError}
                     </div>
                 )}
 
                 {/* Loading Skeleton */}
                 {asking && (
                     <div className="mt-xl">
-                        <div className="skeleton" style={{ height: 24, width: '60%', marginBottom: 12 }}></div>
-                        <div className="skeleton" style={{ height: 16, width: '100%', marginBottom: 8 }}></div>
-                        <div className="skeleton" style={{ height: 16, width: '90%', marginBottom: 8 }}></div>
-                        <div className="skeleton" style={{ height: 16, width: '75%' }}></div>
+                        <div className="skeleton" style={{ height: 16, width: '80%', marginBottom: 10 }}></div>
+                        <div className="skeleton" style={{ height: 16, width: '100%', marginBottom: 10 }}></div>
+                        <div className="skeleton" style={{ height: 16, width: '65%' }}></div>
                     </div>
                 )}
 
@@ -373,35 +349,25 @@ export default function DocumentsPage() {
 
                         {qaResult.sources.length > 0 && (
                             <>
-                                <h3 className="sources-title">
-                                    📎 Sources ({qaResult.sources.length})
-                                </h3>
+                                <h3 className="sources-title">Sources</h3>
                                 {qaResult.sources.map((source, i) => (
-                                    <div
-                                        key={i}
-                                        className="source-card"
-                                        onClick={() => toggleSource(i)}
-                                    >
-                                        <div className="source-header">
-                                            <span className="source-doc-name">
-                                                📄 {source.documentName}
+                                    <div key={i}>
+                                        <div
+                                            className="source-item"
+                                            onClick={() => toggleSource(i)}
+                                        >
+                                            <span className="source-number">
+                                                <sup>{i + 1}</sup>
                                             </span>
-                                            <span className="badge badge-accent">
-                                                {getSimilarityLabel(source.similarity)} ({Math.round(source.similarity * 100)}%)
+                                            <span>{source.documentName}</span>
+                                            <span style={{ color: 'var(--text-muted)' }}>·</span>
+                                            <span>{getSimilarityLabel(source.similarity)}</span>
+                                            <span style={{ color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                                                {expandedSources.has(i) ? '▾' : '▸'}
                                             </span>
                                         </div>
-                                        {expandedSources.has(i) ? (
+                                        {expandedSources.has(i) && (
                                             <div className="source-text">{source.chunkText}</div>
-                                        ) : (
-                                            <p
-                                                style={{
-                                                    color: 'var(--text-muted)',
-                                                    fontSize: 'var(--text-xs)',
-                                                    marginTop: 'var(--space-xs)',
-                                                }}
-                                            >
-                                                Click to expand source passage ▸
-                                            </p>
                                         )}
                                     </div>
                                 ))}

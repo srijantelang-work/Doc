@@ -16,7 +16,7 @@ export default function Navbar() {
         <nav className="navbar">
             <div className="navbar-inner">
                 <Link href="/" className="navbar-logo">
-                    <span className="navbar-logo-icon">📚</span>
+                    <span className="navbar-logo-icon">◆</span>
                     KnowledgeBase
                 </Link>
                 <ul className="navbar-links">

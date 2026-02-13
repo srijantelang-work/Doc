@@ -13,7 +13,7 @@ A web app that lets you upload text documents, ask questions in natural language
 ```bash
 # 1. Clone the repo
 git clone <repo-url>
-cd qa_wolf_take_home
+cd Doc
 
 # 2. Install dependencies
 npm install

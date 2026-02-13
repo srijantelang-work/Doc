@@ -8,11 +8,9 @@ export default function HomePage() {
           Your Documents,<br />Your Answers
         </h1>
         <p className="hero-subtitle">
-          Upload your text documents and ask questions in natural language.
-          Get AI-powered answers with exact source citations — always know
-          where the information came from.
+          Ask questions. Get cited answers.
         </p>
-        <div className="flex items-center gap-md" style={{ justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: '1rem' }}>
           <Link href="/documents" className="btn btn-primary btn-lg">
             Get Started →
           </Link>
@@ -22,35 +20,29 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="steps-grid fade-in">
-        <div className="step-card">
-          <div className="step-number">1</div>
-          <div className="step-icon">📄</div>
-          <h3 className="step-title">Upload Documents</h3>
-          <p className="step-desc">
-            Add your text files. They&apos;re automatically chunked and indexed
-            using AI embeddings for semantic search.
-          </p>
+      <section className="timeline fade-in">
+        <div className="timeline-step">
+          <div className="timeline-dot">1</div>
+          <div className="timeline-label">Upload</div>
+          <div className="timeline-desc">
+            Add your text files. Automatically chunked and indexed with AI embeddings.
+          </div>
         </div>
 
-        <div className="step-card">
-          <div className="step-number">2</div>
-          <div className="step-icon">💬</div>
-          <h3 className="step-title">Ask Questions</h3>
-          <p className="step-desc">
-            Type any question in natural language. Our AI searches through
-            your documents to find the most relevant passages.
-          </p>
+        <div className="timeline-step">
+          <div className="timeline-dot">2</div>
+          <div className="timeline-label">Ask</div>
+          <div className="timeline-desc">
+            Type any question in natural language. We search your documents semantically.
+          </div>
         </div>
 
-        <div className="step-card">
-          <div className="step-number">3</div>
-          <div className="step-icon">✨</div>
-          <h3 className="step-title">Get Cited Answers</h3>
-          <p className="step-desc">
-            Receive accurate answers with source citations — see exactly
-            which document and passage the answer came from.
-          </p>
+        <div className="timeline-step">
+          <div className="timeline-dot">3</div>
+          <div className="timeline-label">Cited Answers</div>
+          <div className="timeline-desc">
+            Receive accurate answers with exact source citations from your documents.
+          </div>
         </div>
       </section>
 
