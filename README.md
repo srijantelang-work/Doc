@@ -1,105 +1,71 @@
 # KnowledgeBase — Private Knowledge Q&A
 
-A web app that lets you upload text documents, ask questions in natural language, and get AI-powered answers with source citations showing exactly which document and passage the answer came from.
+Upload text documents, ask questions, get AI-powered answers with source citations.
 
-## 🚀 Quick Start
+## How to Run
 
-### Prerequisites
-- Node.js 18+
-- A [Google Gemini API key](https://aistudio.google.com/app/apikey)
-
-### Run Locally
+### Local
 
 ```bash
-# 1. Clone the repo
-git clone <repo-url>
-cd Doc
-
-# 2. Install dependencies
+git clone <repo-url> && cd Doc
 npm install
-
-# 3. Set up environment
-cp .env.example .env
-# Edit .env and add your GOOGLE_API_KEY
-
-# 4. Start dev server
-npm run dev
+cp .env.example .env   # add your GOOGLE_API_KEY
+npm run dev             # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-### Run with Docker
+### Docker (one command)
 
 ```bash
-# 1. Set up environment
-cp .env.example .env
-# Edit .env and add your GOOGLE_API_KEY
-
-# 2. Start with one command
+cp .env.example .env    # add your GOOGLE_API_KEY
 docker compose up --build
 ```
 
-## 🏗 Tech Stack
+### Tests
+
+```bash
+npm test                # 20 unit tests via Vitest
+```
+
+## Tech Stack
 
 | Layer | Tech |
 |-------|------|
-| Framework | Next.js 15 (App Router, TypeScript) |
-| Styling | Vanilla CSS (custom dark-mode design system) |
-| Database | SQLite via better-sqlite3 |
-| LLM | Google Gemini 1.5 Flash |
-| Embeddings | Gemini text-embedding-004 |
+| Framework | Next.js 16 (App Router, TypeScript) |
+| Styling | Vanilla CSS (dark-mode design system) |
+| Database | SQLite (better-sqlite3) |
+| LLM | Gemini 2.5 Flash |
+| Embeddings | gemini-embedding-001 |
+| Tests | Vitest |
 
-## 📋 Features
+## What's Done
 
-### ✅ Done
-- **Document Upload**: Upload `.txt` and `.md` files via drag-and-drop or click-to-browse
-- **Document Management**: View list of uploaded documents with metadata, delete documents
-- **Q&A with RAG**: Ask natural-language questions, get AI answers grounded in your documents
-- **Source Citations**: Every answer shows which document(s) and which specific passages contributed
-- **Status Dashboard**: Real-time health check for backend, database, and LLM connection
-- **Premium UI**: Dark-mode glassmorphism design with animations and responsive layout
-- **Input Validation**: Handles empty/wrong input with clear error messages
-- **Docker Support**: One-command deployment with `docker compose up`
+- Upload `.txt` and `.md` files (drag-and-drop or click)
+- View/delete uploaded documents
+- Ask questions → get RAG-powered answers with source citations
+- Source panel shows which document & passage contributed
+- Status dashboard (backend, database, LLM health)
+- Input validation with clear error messages
+- Docker one-command setup
+- Unit tests for chunker and similarity logic (20 tests)
 
-### ❌ Not Done
-- PDF / Word document support (only plain text files)
-- User authentication / multi-user support
-- Persistent storage on Vercel (ephemeral due to serverless filesystem)
-- Streaming responses from LLM
+## What's Not Done (Optional / Beyond Scope)
+
+- PDF/Word document support (assignment says "text files are enough")
+- Streaming LLM responses
 - Conversation history / follow-up questions
-- Full-text search (only semantic/embedding-based search)
 
-## 🧠 How It Works (RAG Pipeline)
-
-1. **Upload**: Text file is received and stored in SQLite
-2. **Chunk**: Text is split into overlapping ~500-character chunks by paragraphs
-3. **Embed**: Each chunk is converted to a 768-dim vector using Gemini `text-embedding-004`
-4. **Store**: Chunks with embeddings are stored in SQLite
-5. **Query**: User's question is embedded → cosine similarity finds top-5 relevant chunks
-6. **Answer**: Relevant chunks are sent as context to Gemini 1.5 Flash, which generates a grounded answer
-7. **Cite**: Source documents and passages are returned alongside the answer
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/
+├── __tests__/              # Unit tests (chunker, similarity)
 ├── app/
-│   ├── api/
-│   │   ├── ask/route.ts          # Q&A endpoint
-│   │   ├── documents/route.ts    # Upload & list
-│   │   ├── documents/[id]/route.ts  # Delete
-│   │   └── status/route.ts       # Health check
-│   ├── ask/page.tsx              # Q&A page
-│   ├── documents/page.tsx        # Document management
-│   ├── status/page.tsx           # Status dashboard
-│   ├── page.tsx                  # Home page
-│   ├── layout.tsx                # Root layout
-│   └── globals.css               # Design system
-├── components/
-│   └── Navbar.tsx                # Navigation
-└── lib/
-    ├── db.ts                     # SQLite connection
-    ├── chunker.ts                # Text chunking
-    ├── embeddings.ts             # Gemini embeddings
-    └── similarity.ts             # Cosine similarity search
+│   ├── api/ask/            # Q&A endpoint
+│   ├── api/documents/      # Upload, list, delete
+│   ├── api/status/         # Health check
+│   ├── documents/page.tsx  # Documents + Q&A page
+│   ├── status/page.tsx     # Status dashboard
+│   └── page.tsx            # Home
+├── components/             # UploadZone, DocumentList, QASection, Navbar
+└── lib/                    # db, chunker, embeddings, similarity, constants
 ```

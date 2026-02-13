@@ -95,7 +95,7 @@ export default function UploadZone({ onUploadComplete, onToast }: UploadZoneProp
                         Drop files here or <strong>click to upload</strong>
                     </p>
                     <p className="upload-zone-hint">
-                        .txt · .md · .pdf — max {MAX_FILE_SIZE / (1024 * 1024)}MB
+                        .txt and .md files only  — max {MAX_FILE_SIZE / (1024 * 1024)}MB
                     </p>
                 </>
             )}

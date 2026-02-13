@@ -72,11 +72,10 @@ export async function POST(request: NextRequest) {
         let content: string;
 
         if (fileExtension === '.pdf' || file.type === 'application/pdf') {
-            const buffer = Buffer.from(await file.arrayBuffer());
-            // pdf-parse uses `export =` (CJS) which requires .default at runtime with ESM interop
-            const pdfParseFn = (await import('pdf-parse')) as unknown as (buf: Buffer) => Promise<{ text: string }>;
-            const pdfData = await pdfParseFn(buffer);
-            content = pdfData.text;
+            return NextResponse.json(
+                { error: 'PDF files are not supported. Please convert to text.' },
+                { status: 400 }
+            );
         } else {
             content = await file.text();
         }
