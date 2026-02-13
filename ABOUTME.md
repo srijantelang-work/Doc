@@ -3,7 +3,7 @@
 <!-- TODO: Fill in your details -->
 
 ## Name
-[Your Name]
+Srijan Telang
 
 ## Resume
-[Attach your resume or paste a link here]
+https://drive.google.com/file/d/1JkVmescxVqQUn0mQM2y2IoXRWjkFV_vg/view?usp=sharing

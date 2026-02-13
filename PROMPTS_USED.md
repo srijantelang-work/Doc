@@ -66,3 +66,17 @@ A record of prompts used during app development. Agent responses and API keys ar
 
 ---
 
+
+## 7. Code Quality Review & Refactoring
+
+**Prompt:**
+> You are code reviewer check the quality of code check proper parsing is done or not evaluate on the basis of this criteria: Code Quality, Architecture & Extensibility, Types & Domain Modeling, Error Handling, It works and is easy to use, Clean code, Basic checks and testing, Sensible use of AI (not blind copy-paste)
+
+**Outcome:**
+Performed a comprehensive review scoring ~6.75/10. Identified key gap in testing (0 tests).
+Implemented 5 major fixes:
+1.  **Shared Constants**: Centralized magic numbers in `lib/constants.ts`.
+2.  **Dynamic Imports**: Fixed `require('pdf-parse')` to use `import()` with proper types.
+3.  **Dead Code Removal**: Deleted unused `page.module.css`.
+4.  **Component Extraction**: Split `documents/page.tsx` (391 lines) into 3 sub-components (`UploadZone`, `DocumentList`, `QASection`).
+5.  **Unit Testing**: Added `vitest` and wrote 20 unit tests for `chunker.ts` and `similarity.ts` (100% pass rate).

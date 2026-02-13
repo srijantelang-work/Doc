@@ -30,3 +30,5 @@
 - **UI/UX flow**: Designed the 3-step home page flow, source citation expand/collapse interaction
 - **Input validation**: Defined all validation rules (file type, size, empty checks, question length)
 - **Docker setup**: Configured multi-stage build and volume mounting for SQLite persistence
+- **Unit tests**: Wrote comprehensive test suites for chunking logic and vector similarity math (20 tests)
+- **Refactoring**: Extracted monolithic components into smaller, reusable parts and centralized constants

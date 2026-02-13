@@ -3,6 +3,7 @@ import { getDb } from '@/lib/db';
 import { generateEmbedding } from '@/lib/embeddings';
 import { findTopKChunks, ChunkWithEmbedding } from '@/lib/similarity';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { LLM_MODEL, MAX_QUESTION_LENGTH, MIN_SIMILARITY_THRESHOLD, TOP_K_CHUNKS } from '@/lib/constants';
 
 interface ChunkRow {
     id: string;
@@ -12,8 +13,6 @@ interface ChunkRow {
     embedding: string;
     document_name: string;
 }
-
-const LLM_MODEL = 'gemini-2.5-flash';
 
 export async function POST(request: NextRequest) {
     try {
@@ -27,9 +26,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (question.trim().length > 1000) {
+        if (question.trim().length > MAX_QUESTION_LENGTH) {
             return NextResponse.json(
-                { error: 'Question must be less than 1000 characters' },
+                { error: `Question must be less than ${MAX_QUESTION_LENGTH} characters` },
                 { status: 400 }
             );
         }
@@ -77,10 +76,10 @@ export async function POST(request: NextRequest) {
         }));
 
         // Find top relevant chunks
-        const topChunks = findTopKChunks(questionEmbedding, chunksWithEmbeddings, 5);
+        const topChunks = findTopKChunks(questionEmbedding, chunksWithEmbeddings, TOP_K_CHUNKS);
 
         // Filter out chunks with very low similarity
-        const relevantChunks = topChunks.filter((c) => c.similarity > 0.3);
+        const relevantChunks = topChunks.filter((c) => c.similarity > MIN_SIMILARITY_THRESHOLD);
 
         if (relevantChunks.length === 0) {
             return NextResponse.json({

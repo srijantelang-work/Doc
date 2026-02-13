@@ -8,8 +8,7 @@
  * 4. Add overlap between chunks for context continuity
  */
 
-const DEFAULT_MAX_CHUNK_SIZE = 500; // characters
-const DEFAULT_OVERLAP = 50; // characters
+import { DEFAULT_MAX_CHUNK_SIZE, DEFAULT_OVERLAP } from './constants';
 
 export function chunkText(
     text: string,

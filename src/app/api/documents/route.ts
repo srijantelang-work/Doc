@@ -3,17 +3,13 @@ import { getDb } from '@/lib/db';
 import { chunkText } from '@/lib/chunker';
 import { generateEmbeddings } from '@/lib/embeddings';
 import { v4 as uuidv4 } from 'uuid';
+import { MAX_FILE_SIZE, VALID_EXTENSIONS, VALID_MIME_TYPES } from '@/lib/constants';
 
 interface DocumentRow {
     id: string;
     name: string;
     content: string;
     uploaded_at: string;
-}
-
-interface ChunkCountRow {
-    document_id: string;
-    chunk_count: number;
 }
 
 // GET /api/documents — list all documents
@@ -55,22 +51,19 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate file type
-        const validTypes = ['text/plain', 'text/markdown', 'application/octet-stream', 'application/pdf'];
-        const validExtensions = ['.txt', '.md', '.text', '.pdf'];
         const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
 
-        if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
+        if (!VALID_MIME_TYPES.includes(file.type as typeof VALID_MIME_TYPES[number]) && !VALID_EXTENSIONS.includes(fileExtension as typeof VALID_EXTENSIONS[number])) {
             return NextResponse.json(
-                { error: 'Only .txt, .md, and .pdf files are supported' },
+                { error: `Only ${VALID_EXTENSIONS.join(', ')} files are supported` },
                 { status: 400 }
             );
         }
 
-        // Validate file size (max 5MB)
-        const MAX_FILE_SIZE = 5 * 1024 * 1024;
+        // Validate file size
         if (file.size > MAX_FILE_SIZE) {
             return NextResponse.json(
-                { error: 'File size must be less than 5MB' },
+                { error: `File size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB` },
                 { status: 400 }
             );
         }
@@ -80,9 +73,9 @@ export async function POST(request: NextRequest) {
 
         if (fileExtension === '.pdf' || file.type === 'application/pdf') {
             const buffer = Buffer.from(await file.arrayBuffer());
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const pdfParse = require('pdf-parse');
-            const pdfData = await pdfParse(buffer);
+            // pdf-parse uses `export =` (CJS) which requires .default at runtime with ESM interop
+            const pdfParseFn = (await import('pdf-parse')) as unknown as (buf: Buffer) => Promise<{ text: string }>;
+            const pdfData = await pdfParseFn(buffer);
             content = pdfData.text;
         } else {
             content = await file.text();
