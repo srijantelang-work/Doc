@@ -1,3 +1,11 @@
+/**
+ * Vector similarity utilities for the RAG pipeline.
+ *
+ * Ranks document chunks by cosine similarity to a query embedding,
+ * returning the top-k most relevant results.
+ */
+
+/** A document chunk with its pre-computed embedding vector. */
 export interface ChunkWithEmbedding {
     id: string;
     documentId: string;
@@ -7,6 +15,7 @@ export interface ChunkWithEmbedding {
     embedding: number[];
 }
 
+/** A ranked chunk result with its similarity score (no embedding). */
 export interface RankedChunk {
     id: string;
     documentId: string;
@@ -18,7 +27,11 @@ export interface RankedChunk {
 
 /**
  * Compute cosine similarity between two vectors.
- * Returns a value between -1 and 1, where 1 means identical direction.
+ *
+ * @param a — first vector
+ * @param b — second vector (must be same length as `a`)
+ * @returns a value between -1 and 1, where 1 means identical direction
+ * @throws Error if vector lengths don't match
  */
 export function cosineSimilarity(a: number[], b: number[]): number {
     if (a.length !== b.length) {
@@ -43,6 +56,11 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 
 /**
  * Find the top-k most similar chunks to a query embedding.
+ *
+ * @param queryEmbedding — the embedding vector of the user's question
+ * @param chunks         — all document chunks with their embeddings
+ * @param k              — number of top results to return (default: 5)
+ * @returns top-k chunks sorted by similarity descending
  */
 export function findTopKChunks(
     queryEmbedding: number[],

@@ -33,6 +33,7 @@ export default function QASection({ hasDocuments, loading }: QASectionProps) {
     const [qaResult, setQaResult] = useState<QAResult | null>(null);
     const [qaError, setQaError] = useState<string | null>(null);
     const [expandedSources, setExpandedSources] = useState<Set<number>>(new Set());
+    const [copied, setCopied] = useState(false);
 
     async function handleAsk(e: React.FormEvent) {
         e.preventDefault();
@@ -52,6 +53,7 @@ export default function QASection({ hasDocuments, loading }: QASectionProps) {
         setQaError(null);
         setQaResult(null);
         setExpandedSources(new Set());
+        setCopied(false);
 
         try {
             const res = await fetch('/api/ask', {
@@ -87,26 +89,53 @@ export default function QASection({ hasDocuments, loading }: QASectionProps) {
         });
     }
 
+    async function copyAnswer() {
+        if (!qaResult) return;
+        try {
+            await navigator.clipboard.writeText(qaResult.answer);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            // Clipboard API not available — silently fail
+        }
+    }
+
+    const charCount = question.length;
+
     return (
         <div className="section-divider">
             <h2 className="page-title" style={{ fontSize: 'var(--text-2xl)' }}>
                 Ask a Question
             </h2>
 
-            <form onSubmit={handleAsk} className="question-form" style={{ marginTop: 'var(--space-xl)' }}>
-                <input
-                    type="text"
-                    className="input"
-                    placeholder="What would you like to know?"
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    disabled={asking}
-                />
+            <form onSubmit={handleAsk} className="question-form" style={{ marginTop: 'var(--space-xl)' }} role="search" aria-label="Ask a question about your documents">
+                <div style={{ flex: 1, position: 'relative' }}>
+                    <input
+                        type="text"
+                        className="input"
+                        placeholder="What would you like to know?"
+                        value={question}
+                        onChange={(e) => setQuestion(e.target.value)}
+                        disabled={asking}
+                        aria-label="Your question"
+                        maxLength={MAX_QUESTION_LENGTH}
+                    />
+                    <div style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 'var(--text-xs)',
+                        color: charCount > MAX_QUESTION_LENGTH * 0.9 ? 'var(--error)' : 'var(--text-muted)',
+                        marginTop: 'var(--space-xs)',
+                        textAlign: 'right',
+                    }}>
+                        {charCount}/{MAX_QUESTION_LENGTH}
+                    </div>
+                </div>
                 <button
                     type="submit"
                     className="btn btn-text"
                     disabled={asking || !question.trim() || !hasDocuments}
                     style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+                    aria-label="Submit question"
                 >
                     {asking ? (
                         <span className="loading-spinner"></span>
@@ -124,14 +153,14 @@ export default function QASection({ hasDocuments, loading }: QASectionProps) {
 
             {/* Q&A Error */}
             {qaError && (
-                <div className="error-card mt-xl">
+                <div className="error-card mt-xl" role="alert">
                     {qaError}
                 </div>
             )}
 
             {/* Loading Skeleton */}
             {asking && (
-                <div className="mt-xl">
+                <div className="mt-xl" aria-live="polite" aria-label="Loading answer">
                     <div className="skeleton" style={{ height: 16, width: '80%', marginBottom: 10 }}></div>
                     <div className="skeleton" style={{ height: 16, width: '100%', marginBottom: 10 }}></div>
                     <div className="skeleton" style={{ height: 16, width: '65%' }}></div>
@@ -140,11 +169,22 @@ export default function QASection({ hasDocuments, loading }: QASectionProps) {
 
             {/* Answer + Sources */}
             {qaResult && (
-                <div className="answer-container">
-                    <div className="answer-box">
-                        {qaResult.answer.split('\n').map((line, i) => (
-                            <p key={i}>{line || '\u00A0'}</p>
-                        ))}
+                <div className="answer-container" aria-live="polite">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-md)' }}>
+                        <div className="answer-box" style={{ flex: 1 }}>
+                            {qaResult.answer.split('\n').map((line, i) => (
+                                <p key={i}>{line || '\u00A0'}</p>
+                            ))}
+                        </div>
+                        <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={copyAnswer}
+                            aria-label="Copy answer to clipboard"
+                            title="Copy answer"
+                            style={{ flexShrink: 0 }}
+                        >
+                            {copied ? '✓ Copied' : 'Copy'}
+                        </button>
                     </div>
 
                     {qaResult.sources.length > 0 && (
@@ -155,6 +195,11 @@ export default function QASection({ hasDocuments, loading }: QASectionProps) {
                                     <div
                                         className="source-item"
                                         onClick={() => toggleSource(i)}
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-expanded={expandedSources.has(i)}
+                                        aria-label={`Source ${i + 1}: ${source.documentName}`}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleSource(i); }}
                                     >
                                         <span className="source-number">
                                             <sup>{i + 1}</sup>

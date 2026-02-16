@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import Navbar from '@/components/Navbar';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 export const metadata: Metadata = {
   title: 'KnowledgeBase — Private Knowledge Q&A',
@@ -25,8 +26,13 @@ export default function RootLayout({
       </head>
       <body>
         <Navbar />
-        <main>{children}</main>
+        <main>
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
+        </main>
       </body>
     </html>
   );
 }
+

@@ -4,6 +4,9 @@ import { chunkText } from '@/lib/chunker';
 import { generateEmbeddings } from '@/lib/embeddings';
 import { v4 as uuidv4 } from 'uuid';
 import { MAX_FILE_SIZE, VALID_EXTENSIONS, VALID_MIME_TYPES } from '@/lib/constants';
+import { ValidationError, toErrorResponse, RateLimitError } from '@/lib/errors';
+import { checkRateLimit, getClientIp, UPLOAD_RATE_LIMIT } from '@/lib/rate-limit';
+import { sanitizeFilename } from '@/lib/sanitize';
 
 interface DocumentRow {
     id: string;
@@ -12,7 +15,7 @@ interface DocumentRow {
     uploaded_at: string;
 }
 
-// GET /api/documents — list all documents
+/** GET /api/documents — list all documents. */
 export async function GET() {
     try {
         const db = getDb();
@@ -20,72 +23,60 @@ export async function GET() {
         const documents = db
             .prepare(
                 `SELECT d.id, d.name, d.uploaded_at, COUNT(c.id) as chunk_count
-         FROM documents d
-         LEFT JOIN chunks c ON c.document_id = d.id
-         GROUP BY d.id
-         ORDER BY d.uploaded_at DESC`
+                 FROM documents d
+                 LEFT JOIN chunks c ON c.document_id = d.id
+                 GROUP BY d.id
+                 ORDER BY d.uploaded_at DESC`
             )
             .all() as (DocumentRow & { chunk_count: number })[];
 
         return NextResponse.json({ documents });
     } catch (error) {
-        console.error('Error listing documents:', error);
-        return NextResponse.json(
-            { error: 'Failed to list documents' },
-            { status: 500 }
-        );
+        const { body, status } = toErrorResponse(error);
+        return NextResponse.json(body, { status });
     }
 }
 
-// POST /api/documents — upload a document
+/** POST /api/documents — upload a document. */
 export async function POST(request: NextRequest) {
     try {
+        // ── Rate limiting ──
+        const ip = getClientIp(request);
+        if (!checkRateLimit(ip, UPLOAD_RATE_LIMIT)) {
+            throw new RateLimitError();
+        }
+
         const formData = await request.formData();
         const file = formData.get('file') as File | null;
 
         if (!file) {
-            return NextResponse.json(
-                { error: 'No file provided' },
-                { status: 400 }
-            );
+            throw new ValidationError('No file provided.');
         }
 
-        // Validate file type
+        // ── Validate file type ──
         const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
 
-        if (!VALID_MIME_TYPES.includes(file.type as typeof VALID_MIME_TYPES[number]) && !VALID_EXTENSIONS.includes(fileExtension as typeof VALID_EXTENSIONS[number])) {
-            return NextResponse.json(
-                { error: `Only ${VALID_EXTENSIONS.join(', ')} files are supported` },
-                { status: 400 }
-            );
+        if (
+            !VALID_MIME_TYPES.includes(file.type as typeof VALID_MIME_TYPES[number]) &&
+            !VALID_EXTENSIONS.includes(fileExtension as typeof VALID_EXTENSIONS[number])
+        ) {
+            throw new ValidationError(`Only ${VALID_EXTENSIONS.join(', ')} files are supported.`);
         }
 
-        // Validate file size
+        // ── Validate file size ──
         if (file.size > MAX_FILE_SIZE) {
-            return NextResponse.json(
-                { error: `File size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB` },
-                { status: 400 }
-            );
+            throw new ValidationError(`File size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB.`);
         }
 
-        // Extract text content based on file type
-        let content: string;
-
-        if (fileExtension === '.pdf' || file.type === 'application/pdf') {
-            return NextResponse.json(
-                { error: 'PDF files are not supported. Please convert to text.' },
-                { status: 400 }
-            );
-        } else {
-            content = await file.text();
-        }
+        // ── Extract text content ──
+        const content = await file.text();
 
         if (!content.trim()) {
-            return NextResponse.json(
-                { error: 'File is empty or contains no extractable text' },
-                { status: 400 }
-            );
+            throw new ValidationError('File is empty or contains no extractable text.');
         }
+
+        // ── Sanitize filename ──
+        const safeName = sanitizeFilename(file.name);
 
         const db = getDb();
         const documentId = uuidv4();
@@ -94,7 +85,7 @@ export async function POST(request: NextRequest) {
         // Insert document
         db.prepare(
             'INSERT INTO documents (id, name, content, uploaded_at) VALUES (?, ?, ?, ?)'
-        ).run(documentId, file.name, content, uploadedAt);
+        ).run(documentId, safeName, content, uploadedAt);
 
         // Chunk text
         const chunks = chunkText(content);
@@ -102,7 +93,7 @@ export async function POST(request: NextRequest) {
         // Generate embeddings for all chunks
         const embeddings = await generateEmbeddings(chunks);
 
-        // Insert chunks with embeddings
+        // Insert chunks with embeddings in a transaction
         const insertChunk = db.prepare(
             'INSERT INTO chunks (id, document_id, content, chunk_index, embedding) VALUES (?, ?, ?, ?, ?)'
         );
@@ -124,16 +115,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             document: {
                 id: documentId,
-                name: file.name,
+                name: safeName,
                 uploaded_at: uploadedAt,
                 chunk_count: chunks.length,
             },
         });
     } catch (error) {
-        console.error('Error uploading document:', error);
-        return NextResponse.json(
-            { error: 'Failed to upload document. Please try again.' },
-            { status: 500 }
-        );
+        const { body, status } = toErrorResponse(error);
+        return NextResponse.json(body, { status });
     }
 }

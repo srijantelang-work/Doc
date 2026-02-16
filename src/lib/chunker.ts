@@ -6,14 +6,22 @@
  * 2. Merge small paragraphs together until we hit maxChunkSize
  * 3. If a single paragraph exceeds maxChunkSize, split it by sentences
  * 4. Add overlap between chunks for context continuity
+ * 5. Filter out chunks shorter than minChunkLength
+ *
+ * @param text          — the raw document text to chunk
+ * @param maxChunkSize  — maximum characters per chunk (default: 500)
+ * @param overlap       — characters of overlap between chunks (default: 50)
+ * @param minChunkLength — discard chunks shorter than this (default: 20)
+ * @returns array of non-empty text chunks
  */
 
-import { DEFAULT_MAX_CHUNK_SIZE, DEFAULT_OVERLAP } from './constants';
+import { DEFAULT_MAX_CHUNK_SIZE, DEFAULT_OVERLAP, MIN_CHUNK_LENGTH } from './constants';
 
 export function chunkText(
     text: string,
     maxChunkSize: number = DEFAULT_MAX_CHUNK_SIZE,
-    overlap: number = DEFAULT_OVERLAP
+    overlap: number = DEFAULT_OVERLAP,
+    minChunkLength: number = MIN_CHUNK_LENGTH
 ): string[] {
     if (!text || text.trim().length === 0) {
         return [];
@@ -86,5 +94,6 @@ export function chunkText(
         chunks.push(currentChunk.trim());
     }
 
-    return chunks;
+    // Filter out chunks that are too short to be useful
+    return chunks.filter((chunk) => chunk.length >= minChunkLength);
 }

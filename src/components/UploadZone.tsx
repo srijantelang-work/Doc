@@ -8,6 +8,13 @@ interface UploadZoneProps {
     onToast: (message: string, type: 'success' | 'error') => void;
 }
 
+/** Format file size in human-readable form. */
+function formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function UploadZone({ onUploadComplete, onToast }: UploadZoneProps) {
     const [uploading, setUploading] = useState(false);
     const [dragOver, setDragOver] = useState(false);
@@ -44,7 +51,10 @@ export default function UploadZone({ onUploadComplete, onToast }: UploadZoneProp
                 return;
             }
 
-            onToast(`"${data.document.name}" uploaded (${data.document.chunk_count} chunks)`, 'success');
+            onToast(
+                `"${data.document.name}" uploaded — ${data.document.chunk_count} chunks (${formatSize(file.size)})`,
+                'success'
+            );
             onUploadComplete();
         } catch {
             onToast('Upload failed. Please try again.', 'error');
@@ -73,6 +83,10 @@ export default function UploadZone({ onUploadComplete, onToast }: UploadZoneProp
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
+            role="button"
+            tabIndex={0}
+            aria-label="Upload a text document — click or drag and drop"
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
         >
             <input
                 ref={fileInputRef}
@@ -80,6 +94,7 @@ export default function UploadZone({ onUploadComplete, onToast }: UploadZoneProp
                 accept={VALID_EXTENSIONS.join(',')}
                 onChange={handleFileChange}
                 className="sr-only"
+                aria-label="Choose file to upload"
             />
             {uploading ? (
                 <>
@@ -95,7 +110,7 @@ export default function UploadZone({ onUploadComplete, onToast }: UploadZoneProp
                         Drop files here or <strong>click to upload</strong>
                     </p>
                     <p className="upload-zone-hint">
-                        .txt and .md files only  — max {MAX_FILE_SIZE / (1024 * 1024)}MB
+                        .txt and .md files — max {MAX_FILE_SIZE / (1024 * 1024)}MB
                     </p>
                 </>
             )}

@@ -825,3 +825,25 @@ a:hover {
     gap: var(--space-md);
   }
 }
+
+/* --- Focus Visible (Keyboard Accessibility) --- */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Remove outline for mouse clicks */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* --- Reduced Motion (Accessibility) --- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

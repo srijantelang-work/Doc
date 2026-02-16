@@ -3,7 +3,17 @@ import { getDb } from '@/lib/db';
 import { generateEmbedding } from '@/lib/embeddings';
 import { findTopKChunks, ChunkWithEmbedding } from '@/lib/similarity';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { LLM_MODEL, MAX_QUESTION_LENGTH, MIN_SIMILARITY_THRESHOLD, TOP_K_CHUNKS } from '@/lib/constants';
+import {
+    LLM_MODEL,
+    LLM_TEMPERATURE,
+    MAX_QUESTION_LENGTH,
+    MIN_SIMILARITY_THRESHOLD,
+    TOP_K_CHUNKS,
+} from '@/lib/constants';
+import { ValidationError, ExternalServiceError, toErrorResponse } from '@/lib/errors';
+import { checkRateLimit, getClientIp, ASK_RATE_LIMIT } from '@/lib/rate-limit';
+import { RateLimitError } from '@/lib/errors';
+import { sanitizeInput } from '@/lib/sanitize';
 
 interface ChunkRow {
     id: string;
@@ -16,53 +26,48 @@ interface ChunkRow {
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        const { question } = body;
-
-        if (!question || typeof question !== 'string' || question.trim().length === 0) {
-            return NextResponse.json(
-                { error: 'Please provide a non-empty question' },
-                { status: 400 }
-            );
+        // ── Rate limiting ──
+        const ip = getClientIp(request);
+        if (!checkRateLimit(ip, ASK_RATE_LIMIT)) {
+            throw new RateLimitError();
         }
 
-        if (question.trim().length > MAX_QUESTION_LENGTH) {
-            return NextResponse.json(
-                { error: `Question must be less than ${MAX_QUESTION_LENGTH} characters` },
-                { status: 400 }
-            );
+        // ── Input validation ──
+        const body = await request.json();
+        const question = sanitizeInput(body.question);
+
+        if (!question) {
+            throw new ValidationError('Please provide a non-empty question.');
+        }
+
+        if (question.length > MAX_QUESTION_LENGTH) {
+            throw new ValidationError(`Question must be less than ${MAX_QUESTION_LENGTH} characters.`);
         }
 
         const db = getDb();
 
-        // Check if there are any documents
+        // Check for uploaded documents
         const docCount = db.prepare('SELECT COUNT(*) as count FROM documents').get() as { count: number };
         if (docCount.count === 0) {
-            return NextResponse.json(
-                { error: 'No documents uploaded yet. Please upload some documents first.' },
-                { status: 400 }
-            );
+            throw new ValidationError('No documents uploaded yet. Please upload some documents first.');
         }
 
-        // Check if there are any chunks with embeddings
+        // Check for processed chunks
         const chunkCount = db.prepare('SELECT COUNT(*) as count FROM chunks WHERE embedding IS NOT NULL').get() as { count: number };
         if (chunkCount.count === 0) {
-            return NextResponse.json(
-                { error: 'Documents are still being processed. Please try again shortly.' },
-                { status: 400 }
-            );
+            throw new ValidationError('Documents are still being processed. Please try again shortly.');
         }
 
-        // Generate embedding for the question
-        const questionEmbedding = await generateEmbedding(question.trim());
+        // ── Generate question embedding ──
+        const questionEmbedding = await generateEmbedding(question);
 
-        // Load all chunks with embeddings
+        // ── Retrieve & rank chunks ──
         const rows = db
             .prepare(
                 `SELECT c.id, c.document_id, c.content, c.chunk_index, c.embedding, d.name as document_name
-         FROM chunks c
-         JOIN documents d ON d.id = c.document_id
-         WHERE c.embedding IS NOT NULL`
+                 FROM chunks c
+                 JOIN documents d ON d.id = c.document_id
+                 WHERE c.embedding IS NOT NULL`
             )
             .all() as ChunkRow[];
 
@@ -75,48 +80,45 @@ export async function POST(request: NextRequest) {
             embedding: JSON.parse(row.embedding),
         }));
 
-        // Find top relevant chunks
         const topChunks = findTopKChunks(questionEmbedding, chunksWithEmbeddings, TOP_K_CHUNKS);
-
-        // Filter out chunks with very low similarity
         const relevantChunks = topChunks.filter((c) => c.similarity > MIN_SIMILARITY_THRESHOLD);
 
         if (relevantChunks.length === 0) {
             return NextResponse.json({
-                answer: "I couldn't find relevant information in the uploaded documents to answer your question. Try rephrasing your question or upload more relevant documents.",
+                answer:
+                    "I couldn't find relevant information in the uploaded documents to answer your question. Try rephrasing or upload more relevant documents.",
                 sources: [],
             });
         }
 
-        // Build context from top chunks
+        // ── Build context & call LLM ──
         const context = relevantChunks
-            .map((chunk, i) => `[Source ${i + 1} - "${chunk.documentName}"]\n${chunk.content}`)
+            .map((chunk, i) => `[Source ${i + 1} — "${chunk.documentName}"]\n${chunk.content}`)
             .join('\n\n---\n\n');
 
-        // Call Gemini for the answer
         const apiKey = process.env.GOOGLE_API_KEY;
         if (!apiKey) {
-            return NextResponse.json(
-                { error: 'LLM API key is not configured' },
-                { status: 500 }
-            );
+            throw new ExternalServiceError('LLM (API key not configured)');
         }
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: LLM_MODEL });
+        const model = genAI.getGenerativeModel({
+            model: LLM_MODEL,
+            generationConfig: { temperature: LLM_TEMPERATURE },
+        });
 
-        const prompt = `You are a helpful assistant that answers questions based ONLY on the provided context from the user's documents. If the context doesn't contain enough information to answer the question, say so clearly.
+        const prompt = `You are a helpful assistant that answers questions based ONLY on the provided context from the user's documents. If the context doesn't contain enough information, say so clearly.
 
-When answering:
+Rules:
 - Be accurate and concise
-- Reference which source(s) you're drawing from by mentioning the document name
-- If the answer comes from multiple sources, mention all of them
-- Do not make up information not present in the context
+- Reference which source(s) you draw from by mentioning the document name
+- If the answer spans multiple sources, mention all of them
+- Never fabricate information not present in the context
 
 Context from uploaded documents:
 ${context}
 
-Question: ${question.trim()}
+Question: ${question}
 
 Answer:`;
 
@@ -131,12 +133,13 @@ Answer:`;
                 chunkText: chunk.content,
                 similarity: Math.round(chunk.similarity * 100) / 100,
             })),
+            metadata: {
+                chunksSearched: rows.length,
+                chunksUsed: relevantChunks.length,
+            },
         });
     } catch (error) {
-        console.error('Error processing question:', error);
-        return NextResponse.json(
-            { error: 'Failed to process your question. Please try again.' },
-            { status: 500 }
-        );
+        const { body, status } = toErrorResponse(error);
+        return NextResponse.json(body, { status });
     }
 }
